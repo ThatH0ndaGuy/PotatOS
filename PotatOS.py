@@ -121,7 +121,7 @@ class Kernel: # O Gerenciador do sistema.
             isValid = True
             if path == ".":
                 path = os.getcwd()
-            path = path.replace("\\","/")
+            path = str(path).replace("\\","/")
             path = path.replace("//",ROOT)
             folders = path.split("/")
             for i,folder in enumerate(folders):
@@ -129,6 +129,8 @@ class Kernel: # O Gerenciador do sistema.
                     folders.pop(i) # Remove splits em branco por causa da root ser // (ex: "//media/emulated/".split('/') = ['','','media','emulated',''])
             owpath = str(os.getcwd()).replace("\\","/") + "/"
             for folder in folders:
+                if os.path.isfile(folder):
+                    break
                 wpath = str(os.getcwd()).replace("\\","/")
                 if wpath[len(wpath)-1] != "/":
                     wpath = wpath+"/"
@@ -154,9 +156,9 @@ class Kernel: # O Gerenciador do sistema.
             return isValid,path
         
         def Spudify(path: str): # Transforma Caminhos tipo Python no formato do PotatOS
-            if path == ".":
+            if len(path)==0 or path == ".":
                 path = os.getcwd()
-            path = path.replace("\\","/")
+            path = str(path).replace("\\","/")
             path = path.replace(ROOT,"//")
             if path[len(path)-1] != "/":
                 path = path + "/"
@@ -188,10 +190,14 @@ class Kernel: # O Gerenciador do sistema.
             else:
                 print("Invalid path.")
                 
-        def getFile(path: str,filename: str): # Lê um arquivo dentro do sistema de arquivos do PotatOS.
+        def getFile(filename: str): # Lê um arquivo dentro do sistema de arquivos do PotatOS.
+            filename = str(filename)
             folders = filename.split("/")
             for folder in enumerate(folders):
+                try:
                     folders.remove('')
+                except ValueError:
+                    break
             path2File = ""
             for folder in folders[:len(folders)-1]:
                 path2File = os.path.join(path2File, folder)
@@ -548,9 +554,13 @@ class SpudScript: # Interpretador SpudScript para PotatOS
                 
         return (output, exit_code)
         
-    def _execute_script(filename: str): # Roda um SpudScript.
+    def _execute_script(filename: str) -> tuple: # Roda um SpudScript.
+        if len(filename)==0:
+            return (f"{_F.RED}{_S.BRIGHT}ss: {_S.NORMAL}script: File not specified.", 1)
+        
         try:
-            with open(Kernel.PotatoFileSystem.Pythonfy(filename), 'r') as f:
+            f = Kernel.PotatoFileSystem.getFile(filename)
+            if f[0] == "###SpudScript":
                 for line in f:
                     line = line.strip()
                     if len(line)>0 and not line.startswith('#'):
@@ -559,8 +569,11 @@ class SpudScript: # Interpretador SpudScript para PotatOS
                             print(output)
                         if exit_code != 0:
                             break
+        except FileNotFoundError:
+            return (f"{_F.RED}{_S.BRIGHT}ss: {_S.NORMAL}script: File not found.", 1)
         except Exception as e:
-            print(f"ss: script error: {str(e)}")
+            traceback.print_exc()
+            return (f"{_F.RED}{_S.BRIGHT}ss: {_S.NORMAL}script: error: {str(e)}", 1)
 
 Kernel.MemoryManager.createDisk(1) # 1KB
 
@@ -579,7 +592,7 @@ while True:
         SpudScript.variables['?'] = str(exit_code)
             
     except KeyboardInterrupt:
-        print("\nDon't Interrupt me! Use 'exit' and disappear!")
+        print()
     except Exception as e:
         print(f"{_F.RED}{_S.BRIGHT}ss: {_S.NORMAL}error: {str(e)}")
         traceback.print_exc()
